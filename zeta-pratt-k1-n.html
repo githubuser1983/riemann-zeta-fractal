@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090d19">
+<meta name="description" content="Zeta-Pratt-Fraktale für k=1: Pratt-Index n frei wählen, Pinch-Zoom, Verschieben und Neuberechnung mit JavaScript.">
+<title>Zeta × Pratt · k=1 · n wählbar</title>
+<style>
+  :root{color-scheme:dark;--bg:#090d19;--panel:#141b2b;--text:#edf3ff;--muted:#a8bbd2;--accent:#63e0e6;--line:#2c3a50}
+  *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,select,input{font:inherit;color:inherit}button{min-height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:0 14px;cursor:pointer}
+  button:hover{background:#202d42}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  button:disabled{opacity:.5;cursor:default}select,input{width:100%;min-height:46px;background:#0b1120;border:1px solid var(--line);border-radius:10px;padding:10px}input{appearance:textfield}input::-webkit-inner-spin-button{opacity:1}
+  #app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px max(14px,env(safe-area-inset-right)) 11px max(14px,env(safe-area-inset-left));padding-top:max(12px,env(safe-area-inset-top));flex:none;background:var(--bg)}
+  h1{font-size:19px;line-height:1.2;letter-spacing:-.025em;margin:0 0 5px;font-weight:600}
+  #formula{margin:0;color:var(--accent);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(72vw,720px)}header>div{min-width:0}
+  #openSettings{min-width:72px;font-size:13px}
+  #stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--bg);touch-action:none}
+  #fractal{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #fractal.dragging{cursor:grabbing}
+  .hud{position:absolute;pointer-events:none;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .chip{background:#090d19dc;border:1px solid #26344999;border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted);backdrop-filter:blur(8px)}
+  #renderStatus{min-width:100px}#zoomLabel{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  #gestureHint{position:absolute;pointer-events:none;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 13px;background:#090d19df;border-radius:12px;color:#d3e2f3;font-size:12px;white-space:nowrap;transition:opacity .3s}
+  #gestureHint.used{opacity:0}
+  footer{flex:none;background:var(--bg);padding:10px max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .zoomButtons{display:flex;gap:7px}.zoomButtons button{width:47px;padding:0;font-size:24px}
+  .actions{display:flex;gap:7px}.actions button{font-size:13px;padding:0 12px}
+  #coordinates{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--muted);margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  dialog{width:min(440px,calc(100% - 28px));max-height:calc(100dvh - 40px);padding:22px;border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--text);box-shadow:0 20px 90px #0008;overflow:auto}
+  dialog::backdrop{background:#030711bc;backdrop-filter:blur(5px)}
+  dialog h2{margin:0 0 18px;font-size:21px;letter-spacing:-.03em}
+  .field{display:block;margin:0 0 16px}.field span{display:block;margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .dialogActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+  .primary{background:var(--accent);color:#071a20;border-color:var(--accent);font-weight:600}.primary:hover{background:#8deded}
+  .polyPreview{display:block;margin-top:9px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#0b1120;color:var(--accent);font:12px ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.5;overflow-wrap:anywhere}.note{font-size:12px;line-height:1.55;color:var(--muted);margin:18px 0 0}.note code{color:var(--text)}
+  #toast{position:fixed;z-index:4;left:50%;bottom:105px;transform:translateX(-50%);background:#1c2b40;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 16px;max-width:calc(100% - 28px);font-size:13px;box-shadow:0 8px 36px #0007;display:none}
+  @media(max-width:370px){header{padding-left:10px;padding-right:10px}h1{font-size:18px}#formula{font-size:11px}.actions button{padding:0 9px}.toolbar{gap:6px}.zoomButtons{gap:5px}.zoomButtons button{width:42px}}
+  @media(max-height:460px){header{padding-top:6px;padding-bottom:6px}h1{font-size:16px;margin-bottom:3px}footer{padding-top:6px;padding-bottom:6px}#coordinates{margin-top:5px}.hud{top:8px}#gestureHint{bottom:8px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div><h1>Zeta × Pratt · k=1</h1><p id="formula">zₘ₊₁ = ζ(f₄,₁(zₘ)) = ζ(zₘ²)</p></div>
+    <button id="openSettings" aria-haspopup="dialog">Formel</button>
+  </header>
+  <main id="stage" aria-label="Interaktive Fraktalansicht">
+    <canvas id="fractal" role="img" aria-label="Zeta-Pratt-Fraktal. Mit Ziehen verschieben, mit zwei Fingern oder dem Mausrad zoomen."></canvas>
+    <div class="hud"><span id="renderStatus" class="chip" role="status" aria-live="polite">Lädt …</span><span id="zoomLabel" class="chip">1×</span></div>
+    <div id="gestureHint">Ziehen · Pinch-Zoom · Doppeltippen</div>
+  </main>
+  <footer>
+    <div class="toolbar">
+      <div class="zoomButtons"><button id="zoomOut" aria-label="Herauszoomen">−</button><button id="zoomIn" aria-label="Hineinzoomen">+</button></div>
+      <div class="actions"><button id="reset">Reset</button><button id="saveImage">PNG</button><button id="fullscreen" aria-label="Vollbild">Vollbild</button></div>
+    </div>
+    <div id="coordinates">Mitte: 0 + 0i · 160 Iterationen</div>
+  </footer>
+</div>
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <h2 id="settingsTitle">Ansicht einstellen</h2>
+  <label class="field"><span>Pratt-Index n für f<sub>n,1</sub>(x)</span>
+    <input id="prattN" type="number" min="2" max="1000000" step="1" value="4" inputmode="numeric" list="prattSuggestions" autocomplete="off">
+    <datalist id="prattSuggestions">
+      <option value="2"><option value="3"><option value="4"><option value="5"><option value="6"><option value="7"><option value="8"><option value="9"><option value="10"><option value="11"><option value="12"><option value="16"><option value="32">
+    </datalist>
+    <output id="polyPreview" class="polyPreview">f₄,₁(x) = x²</output>
+  </label>
+  <label class="field"><span>Auflösung</span><select id="quality"><option value="mobile">Mobil · schnell</option><option value="fine">Fein</option><option value="high">Sehr fein · braucht länger</option></select></label>
+  <label class="field"><span>Iterationslimit</span><select id="iterations"><option value="80">80 · schneller</option><option value="160" selected>160 · wie die Vorlage</option><option value="200">200</option><option value="240">240</option><option value="400">400 · braucht länger</option></select></label>
+  <p class="note">k = 1: <code>f₁,₁=1</code>, <code>f₂,₁=x</code>; für Primzahlen <code>p&gt;2</code> gilt <code>fₚ,₁=1+fₚ₋₁,₁</code>, für zusammengesetzte n das Produkt über die Primfaktoren. Für das Fraktal wird <code>zₘ₊₁=ζ(fₙ,₁(zₘ))</code> iteriert.</p>
+  <p class="note">Die Ansicht wird beim Zoomen neu berechnet. Höhere Auflösung macht feine Strukturen sichtbar; mehr Iterationen untersuchen längere Orbits.</p>
+  <p class="note">Farben: endliche Orbitdiagnostik. Dunkel: innerhalb des gewählten Limits offen. Wie im Originalrenderer beendet eine numerische Schranke sehr große Zwischenwerte; sie ist kein bewiesenes Fluchtkriterium.</p>
+  <div class="dialogActions"><button id="closeSettings">Abbrechen</button><button id="applySettings" class="primary">Anwenden</button></div>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+// k=1 Pratt polynomials: f_1=1, f_2=x; for prime p>2, f_p=1+f_{p-1};
+// for composite n, f_n is the product of the prime-polynomials with multiplicity.
+const PRATT_MAX_N=1000000;
+const prattMemo=new Map([[1,[1]],[2,[0,1]]]);
+function isPrimeInt(n){
+  if(n<2)return false;if(n%2===0)return n===2;
+  for(let d=3;d*d<=n;d+=2)if(n%d===0)return false;
+  return true;
+}
+function polyMul(a,b){
+  const c=new Array(a.length+b.length-1).fill(0);
+  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++)c[i+j]+=a[i]*b[j];
+  while(c.length>1&&c[c.length-1]===0)c.pop();
+  return c;
+}
+function buildPrattPolynomial(n){
+  n=Number(n);
+  if(!Number.isInteger(n)||n<1||n>PRATT_MAX_N)throw new Error("n muss eine ganze Zahl von 1 bis "+PRATT_MAX_N+" sein.");
+  if(prattMemo.has(n))return prattMemo.get(n).slice();
+  let result;
+  if(isPrimeInt(n)){
+    result=buildPrattPolynomial(n-1);result[0]=(result[0]||0)+1;
+  }else{
+    result=[1];let m=n;
+    for(let p=2;p*p<=m;p+=(p===2?1:2)){
+      while(m%p===0){result=polyMul(result,buildPrattPolynomial(p));m/=p;}
+    }
+    if(m>1)result=polyMul(result,buildPrattPolynomial(m));
+  }
+  prattMemo.set(n,result.slice());return result;
+}
+const superscript=n=>String(n).split("").map(d=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]).join("");
+const subscript=n=>String(n).split("").map(d=>"₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+function polynomialText(coeffs,variable="x"){
+  const terms=[];
+  for(let d=0;d<coeffs.length;d++){
+    const c=coeffs[d];if(!c)continue;
+    if(d===0)terms.push(String(c));
+    else{const lead=c===1?"":c+"·";terms.push(lead+variable+(d===1?"":superscript(d)));}
+  }
+  return terms.length?terms.join(" + "):"0";
+}
+
+// Self-contained scalar-double zeta renderer.
+// No network requests, dependencies, analytics or external assets.
+function createNumerics() {
+  const PI=Math.PI, L2=Math.log(2), LP=Math.log(PI), logs=new Float64Array(256);
+  for(let n=1;n<logs.length;n++)logs[n]=Math.log(n);
+  const bc=[1/12,-1/720,1/30240,-1/1209600,1/47900160,-691/1307674368000,1/74724249600,-3617/10670622842880000,43867/5109094217170944000,-174611/802857662698291200000];
+  const lanczos=[.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  const palette=[[12,17,54],[74,39,164],[29,124,255],[0,238,230],[116,255,116],[255,235,79],[255,87,68],[242,42,155],[94,34,161]];
+  const histR=new Float64Array(12),histI=new Float64Array(12);
+  let outR=0,outI=0,gr=0,gi=0;
+  let status=4,steps=0,period=0,phase=0,mag=0;
+  function logGamma(r,i) {
+    r-=1;let vr=lanczos[0],vi=0;
+    for(let k=1;k<9;k++){const a=r+k,d=a*a+i*i;vr+=lanczos[k]*a/d;vi-=lanczos[k]*i/d;}
+    const tr=r+7.5,lt=Math.log(Math.hypot(tr,i)),at=Math.atan2(i,tr);
+    gr=.5*Math.log(2*PI)+(r+.5)*lt-i*at-tr+Math.log(Math.hypot(vr,vi));
+    gi=(r+.5)*at+i*lt-i+Math.atan2(vi,vr);
+  }
+  function em(r,i,N) {
+    let rr=0,ii=0;
+    for(let n=1;n<N;n++){
+      const l=logs[n]||Math.log(n),e=Math.exp(-r*l),p=i*l;
+      rr+=e*Math.cos(p);ii-=e*Math.sin(p);
+    }
+    const l=logs[N]||Math.log(N),cs=Math.cos(i*l),sn=Math.sin(i*l);
+    const e=Math.exp((1-r)*l),d=(r-1)*(r-1)+i*i;
+    rr+=e*(cs*(r-1)-sn*i)/d;ii+=e*(-sn*(r-1)-cs*i)/d;
+    const en=Math.exp(-r*l);rr+=.5*en*cs;ii-=.5*en*sn;
+    let pr=1,pi=0,j=0,factor=en/N;
+    const invSquare=1/(N*N);
+    for(let k=1;k<=10;k++){
+      const m=2*k-1;
+      while(j<m){const t=pr*(r+j)-pi*i;pi=pr*i+pi*(r+j);pr=t;j++;}
+      const weight=bc[k-1]*factor;
+      rr+=weight*(pr*cs+pi*sn);ii+=weight*(pi*cs-pr*sn);
+      factor*=invSquare;
+    }
+    outR=rr;outI=ii;
+  }
+  function zetaCore(r,i,trunc=24) {
+    if(r===0&&i===0){outR=-.5;outI=0;return;}
+    const N=Math.max(trunc,24+Math.floor(.9*Math.abs(i)));
+    if(r>=.5){em(r,i,N);return;}
+    if(i===0&&r<0&&r/2===Math.round(r/2)){outR=0;outI=0;return;}
+    logGamma(1-r,-i);
+    const e=Math.exp(r*L2+(r-1)*LP+gr),p=i*(L2+LP)+gi;
+    const er=e*Math.cos(p),ei=e*Math.sin(p);
+    const sr=Math.sin(PI*r/2)*Math.cosh(PI*i/2),si=Math.cos(PI*r/2)*Math.sinh(PI*i/2);
+    const ar=er*sr-ei*si,ai=er*si+ei*sr;
+    em(1-r,-i,N);
+    const nr=ar*outR-ai*outI;
+    outI=ar*outI+ai*outR;outR=nr;
+  }
+  let polyR=0,polyI=0;
+  function evalPolynomial(coeffs,r,i){
+    let rr=0,ii=0;
+    for(let j=coeffs.length-1;j>=0;j--){
+      const nr=rr*r-ii*i+coeffs[j];
+      ii=rr*i+ii*r;rr=nr;
+    }
+    polyR=rr;polyI=ii;
+  }
+  function orbit(r,i,coeffs,limit) {
+    status=4;steps=limit;period=0;
+    for(let n=0;n<limit;n++){
+      evalPolynomial(coeffs,r,i);
+      const ar=polyR,ai=polyI,a=Math.hypot(ar,ai);
+      if(!Number.isFinite(a)||a>200||ar< -60||Math.abs(ai)>120){status=1;steps=n;break;}
+      if(Math.hypot(ar-1,ai)<1e-11){status=2;steps=n;break;}
+      zetaCore(ar,ai);
+      if(!Number.isFinite(outR)||!Number.isFinite(outI)){status=3;steps=n;break;}
+      histR[n%12]=r;histI[n%12]=i;
+      let returned=0;
+      for(let p=1;p<=Math.min(5,n);p++){
+        const prev=(n+1-p)%12,prev2=(n-p)%12;
+        if(Math.hypot(outR-histR[prev],outI-histI[prev])<1e-9*(1+Math.hypot(outR,outI))&&
+           Math.hypot(r-histR[prev2],i-histI[prev2])<1e-9*(1+Math.hypot(r,i))){returned=p;break;}
+      }
+      r=outR;i=outI;
+      if(returned){status=0;steps=n;period=returned;break;}
+    }
+    phase=Math.atan2(i,r);mag=Math.log1p(Math.hypot(r,i));
+  }
+  function colour(pixels,offset) {
+    if(status===4){pixels[offset]=7;pixels[offset+1]=10;pixels[offset+2]=24;pixels[offset+3]=255;return;}
+    let u=(.039*steps+.075*status+.115*period+.042*phase+.005*mag)%1;
+    if(u<0)u+=1;u*=9;const j=Math.floor(u);let f=u-j;f=f*f*(3-2*f);
+    for(let c=0;c<3;c++)pixels[offset+c]=Math.max(0,Math.min(255,(1-f)*palette[j%9][c]+f*palette[(j+1)%9][c]))|0;
+    pixels[offset+3]=255;
+  }
+  function renderTile(job) {
+    const pixels=new Uint8ClampedArray(job.width*job.rows*4),counts=[0,0,0,0,0];
+    for(let y=0;y<job.rows;y++){
+      const im=job.cy+(job.height/2-(job.y+y+.5))*job.unit;
+      for(let x=0;x<job.width;x++){
+        const re=job.cx+(x+.5-job.width/2)*job.unit;
+        orbit(re,im,job.coeffs,job.limit);colour(pixels,(y*job.width+x)*4);counts[status]++;
+      }
+    }
+    return {generation:job.generation,pass:job.pass,y:job.y,rows:job.rows,width:job.width,counts,buffer:pixels.buffer};
+  }
+  return {
+    renderTile,
+    zeta:(r,i,trunc=24)=>{zetaCore(r,i,trunc);return [outR,outI];},
+    inspectOrbit:(r,i,coeffs,limit)=>{orbit(r,i,coeffs,limit);const p=new Uint8ClampedArray(4);colour(p,0);return {status,steps,period,phase,mag,rgba:Array.from(p)};}
+  };
+}
+
+(function(){
+  const baseView={cx:0,cy:0,span:6};
+  const $=id=>document.getElementById(id),canvas=$("fractal"),stage=$("stage"),ctx=canvas.getContext("2d",{alpha:false});
+  const view={...baseView},options={prattN:4,coeffs:buildPrattPolynomial(4),quality:"mobile",limit:160};
+  let cssW=0,cssH=0,dpr=1,underlay=null,overlay=null,current=null,generation=0,renderTimer=0,paintQueued=false;
+  let completed=0,renderStart=0,lastMs=0,lastSize="",fallback=null,fallbackBusy=false,workerUrl=null;
+  const pool=[],pointers=new Map();let gesture=null,tap=null,dragged=false,toastTimer=0,lastTouch=0;
+  const status=$("renderStatus"),settings=$("settings");
+
+  function notify(text){$("toast").textContent=text;$("toast").style.display="block";clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").style.display="none",3000);}
+  function pretty(n){return Math.abs(n)<1e-4&&n!==0?n.toExponential(5):Number(n.toPrecision(10)).toString();}
+  function updateLabels(){
+    const poly=polynomialText(options.coeffs,"zₘ");
+    const full="zₘ₊₁ = ζ(f"+subscript(options.prattN)+",₁(zₘ)) = ζ("+poly+")";
+    $("formula").textContent=full;$("formula").title=full;
+    const zoom=baseView.span/view.span;
+    $("zoomLabel").textContent=(zoom>=1e5?zoom.toExponential(2):zoom.toLocaleString("de-DE",{maximumFractionDigits:2}))+"×";
+    $("coordinates").textContent="n = "+options.prattN+" · Mitte: "+pretty(view.cx)+(view.cy<0?" − ":" + ")+pretty(Math.abs(view.cy))+"i · "+options.limit+" Iterationen";
+  }
+  function drawLayer(layer){
+    if(!layer)return;const unit=view.span/Math.min(cssW,cssH),left=layer.cx-layer.w*layer.unit/2,top=layer.cy+layer.h*layer.unit/2;
+    ctx.drawImage(layer.image,(left-view.cx)/unit+cssW/2,(view.cy-top)/unit+cssH/2,layer.w*layer.unit/unit,layer.h*layer.unit/unit);
+  }
+  function paint(){
+    paintQueued=false;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#090d19";ctx.fillRect(0,0,cssW,cssH);
+    ctx.imageSmoothingEnabled=true;drawLayer(underlay);drawLayer(overlay);updateLabels();
+  }
+  function requestPaint(){if(!paintQueued){paintQueued=true;requestAnimationFrame(paint);}}
+  function captureView(){
+    paint();const image=document.createElement("canvas");image.width=canvas.width;image.height=canvas.height;image.getContext("2d").drawImage(canvas,0,0);
+    underlay={image,w:image.width,h:image.height,cx:view.cx,cy:view.cy,unit:view.span/Math.min(image.width,image.height)};overlay=null;
+  }
+  function cancelRender(){generation++;current=null;clearTimeout(renderTimer);}
+  function rememberView(){
+    const p=new URLSearchParams({k:"1",n:String(options.prattN),x:view.cx.toPrecision(16),y:view.cy.toPrecision(16),s:view.span.toPrecision(16),m:String(options.limit),q:options.quality});
+    try{history.replaceState(null,"","#"+p.toString());}catch(_){}
+  }
+  function scheduleRender(delay=140){
+    cancelRender();status.textContent="Neu berechnen …";status.dataset.state="waiting";
+    renderTimer=setTimeout(beginRender,delay);requestPaint();
+  }
+  function beginRender(){
+    if(!cssW||!cssH||document.hidden)return;
+    captureView();renderStart=performance.now();
+    const target=Math.min(fallback?300:{mobile:420,fine:700,high:1100}[options.quality],Math.ceil(Math.max(cssW,cssH)*Math.min(dpr,1.5)));
+    const passes=[96,180,target].filter((v,i,a)=>v<=target&&a.indexOf(v)===i).sort((a,b)=>a-b);
+    if(!passes.includes(target))passes.push(target);
+    current={generation,passes,index:0,view:{...view},options:{...options},tasks:[],received:0,counts:[0,0,0,0,0]};
+    startPass();
+  }
+  function startPass(){
+    if(!current)return;
+    const c=current,longest=c.passes[c.index],scale=longest/Math.max(cssW,cssH);
+    const w=Math.max(16,Math.round(cssW*scale)),h=Math.max(16,Math.round(cssH*scale));
+    const image=document.createElement("canvas");image.width=w;image.height=h;
+    overlay={image,w,h,cx:c.view.cx,cy:c.view.cy,unit:c.view.span/Math.min(w,h)};
+    c.context=image.getContext("2d");c.width=w;c.height=h;c.received=0;c.counts=[0,0,0,0,0];c.tasks=[];
+    const rows=fallback?1:options.quality==="high"?4:8;
+    for(let y=0;y<h;y+=rows)c.tasks.push({generation:c.generation,pass:c.index,width:w,height:h,y,rows:Math.min(rows,h-y),cx:c.view.cx,cy:c.view.cy,unit:overlay.unit,coeffs:c.options.coeffs,limit:c.options.limit});
+    status.textContent=c.index===0?"Vorschau …":"Verfeinern · 0 %";status.dataset.state="rendering";
+    pump();
+  }
+  function accept(result){
+    if(!current||result.generation!==current.generation||result.pass!==current.index)return;
+    const c=current;c.context.putImageData(new ImageData(new Uint8ClampedArray(result.buffer),result.width,result.rows),0,result.y);
+    c.received+=result.rows;for(let i=0;i<5;i++)c.counts[i]+=result.counts[i];
+    const progress=Math.round(100*c.received/c.height);
+    if(progress%8<3||c.received===c.height)status.textContent=(c.index===0?"Vorschau":"Verfeinern")+" · "+progress+" %";
+    requestPaint();
+    if(c.received===c.height){
+      underlay=overlay;overlay=null;
+      if(c.index+1<c.passes.length){c.index++;startPass();}
+      else{
+        completed++;lastMs=performance.now()-renderStart;lastSize=c.width+" × "+c.height;
+        status.textContent="Fertig · "+lastSize;status.dataset.state="done";current=null;rememberView();requestPaint();
+      }
+    }
+  }
+  function pump(){
+    if(!current)return;
+    if(fallback){
+      if(fallbackBusy||!current.tasks.length)return;
+      fallbackBusy=true;const task=current.tasks.shift();
+      setTimeout(()=>{try{accept(fallback.renderTile(task));}catch(e){renderError(e);}finally{fallbackBusy=false;pump();}},0);return;
+    }
+    for(const member of pool){
+      if(!current||!current.tasks.length)break;
+      if(!member.busy){member.busy=true;member.worker.postMessage(current.tasks.shift());}
+    }
+  }
+  function renderError(error){status.textContent="Berechnung unterbrochen";status.dataset.state="error";notify(error.message||"Bitte geringere Auflösung wählen.");cancelRender();}
+  function useFallback(){
+    for(const member of pool)member.worker.terminate();pool.length=0;
+    if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null;}
+    fallback=createNumerics();fallbackBusy=false;scheduleRender(0);
+  }
+  function createPool(){
+    try{
+      const source="const engine=("+createNumerics.toString()+")();self.onmessage=function(event){try{const result=engine.renderTile(event.data);self.postMessage(result,[result.buffer]);}catch(e){self.postMessage({error:e.message,generation:event.data.generation});}};";
+      workerUrl=URL.createObjectURL(new Blob([source],{type:"text/javascript"}));
+      const n=Math.max(1,Math.min(4,(navigator.hardwareConcurrency||2)-1));
+      for(let i=0;i<n;i++){
+        const worker=new Worker(workerUrl),member={worker,busy:false};pool.push(member);
+        worker.onmessage=e=>{member.busy=false;if(e.data.error){if(current&&e.data.generation===current.generation)renderError(new Error(e.data.error));}else accept(e.data);pump();};
+        worker.onerror=e=>{e.preventDefault();if(!fallback)useFallback();};
+      }
+    }catch(_){useFallback();}
+  }
+  function minimumSpan(){return Math.max(1e-13,Math.max(1,Math.abs(view.cx),Math.abs(view.cy))*Number.EPSILON*Math.min(cssW,cssH)*16);}
+  function setSpan(span){return Math.max(minimumSpan(),Math.min(span,100));}
+  function worldAt(x,y){const u=view.span/Math.min(cssW,cssH);return {r:view.cx+(x-cssW/2)*u,i:view.cy-(y-cssH/2)*u};}
+  function zoomAt(x,y,factor){
+    const a=worldAt(x,y),next=setSpan(view.span*factor),u=next/Math.min(cssW,cssH);
+    view.cx=a.r-(x-cssW/2)*u;view.cy=a.i+(y-cssH/2)*u;view.span=next;$("gestureHint").classList.add("used");scheduleRender(160);
+  }
+  function point(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+  function resetGesture(){
+    const p=Array.from(pointers.values());
+    if(p.length>=2){
+      const m={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2};
+      gesture={pinch:true,span:view.span,distance:Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)),anchor:worldAt(m.x,m.y)};
+    }else if(p.length===1)gesture={pinch:false,x:p[0].x,y:p[0].y,cx:view.cx,cy:view.cy,unit:view.span/Math.min(cssW,cssH)};
+    else gesture=null;
+  }
+  canvas.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);
+    if(e.pointerType!=="mouse")lastTouch=performance.now();
+    pointers.set(e.pointerId,point(e));dragged=false;canvas.classList.add("dragging");cancelRender();resetGesture();
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!pointers.has(e.pointerId)||!gesture)return;e.preventDefault();pointers.set(e.pointerId,point(e));
+    const p=Array.from(pointers.values());
+    if(gesture.pinch&&p.length>=2){
+      const m={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2},d=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
+      view.span=setSpan(gesture.span*gesture.distance/d);const u=view.span/Math.min(cssW,cssH);
+      view.cx=gesture.anchor.r-(m.x-cssW/2)*u;view.cy=gesture.anchor.i+(m.y-cssH/2)*u;dragged=true;
+    }else if(p.length===1&&!gesture.pinch){
+      const dx=p[0].x-gesture.x,dy=p[0].y-gesture.y;view.cx=gesture.cx-dx*gesture.unit;view.cy=gesture.cy+dy*gesture.unit;
+      if(Math.hypot(dx,dy)>3)dragged=true;
+    }
+    $("gestureHint").classList.add("used");status.textContent="Zoom / Verschieben";status.dataset.state="moving";requestPaint();
+  });
+  function pointerEnd(e){
+    if(!pointers.has(e.pointerId))return;
+    const wasPinch=gesture&&gesture.pinch,p=point(e);pointers.delete(e.pointerId);
+    if(e.type==="pointerup"&&e.pointerType!=="mouse"&&!dragged&&!wasPinch){
+      const now=performance.now();
+      if(tap&&now-tap.time<340&&Math.hypot(p.x-tap.x,p.y-tap.y)<28){zoomAt(p.x,p.y,.5);tap=null;}else tap={...p,time:now};
+    }else tap=null;
+    resetGesture();
+    if(!pointers.size){canvas.classList.remove("dragging");scheduleRender(100);}
+  }
+  canvas.addEventListener("pointerup",pointerEnd);canvas.addEventListener("pointercancel",pointerEnd);
+  canvas.addEventListener("dblclick",e=>{e.preventDefault();if(lastTouch&&performance.now()-lastTouch<1000)return;const p=point(e);zoomAt(p.x,p.y,.5);});
+  canvas.addEventListener("wheel",e=>{
+    e.preventDefault();const p=point(e);let delta=e.deltaY;if(e.deltaMode===1)delta*=16;else if(e.deltaMode===2)delta*=cssH;
+    zoomAt(p.x,p.y,Math.exp(Math.max(-500,Math.min(500,delta))*.0015));
+  },{passive:false});
+  $("zoomIn").onclick=()=>zoomAt(cssW/2,cssH/2,.5);
+  $("zoomOut").onclick=()=>zoomAt(cssW/2,cssH/2,2);
+  function validPrattN(value){const n=Number(value);return Number.isInteger(n)&&n>=2&&n<=PRATT_MAX_N?n:null;}
+  function updatePolynomialPreview(){
+    const n=validPrattN($("prattN").value);
+    if(n===null){$("polyPreview").textContent="Bitte eine ganze Zahl 2 … "+PRATT_MAX_N+" eingeben.";return;}
+    try{$("polyPreview").textContent="f"+subscript(n)+",₁(x) = "+polynomialText(buildPrattPolynomial(n),"x");}
+    catch(e){$("polyPreview").textContent=e.message;}
+  }
+  $("prattN").addEventListener("input",updatePolynomialPreview);
+  $("reset").onclick=()=>{view.cx=baseView.cx;view.cy=baseView.cy;view.span=baseView.span;underlay=null;overlay=null;scheduleRender(0);};
+  $("openSettings").onclick=()=>{$("prattN").value=options.prattN;$("quality").value=options.quality;$("iterations").value=options.limit;updatePolynomialPreview();settings.showModal();};
+  $("closeSettings").onclick=()=>settings.close();
+  $("applySettings").onclick=()=>{
+    const n=validPrattN($("prattN").value);
+    if(n===null){notify("n muss eine ganze Zahl zwischen 2 und "+PRATT_MAX_N+" sein.");$("prattN").focus();return;}
+    const changed=n!==options.prattN;
+    options.prattN=n;options.coeffs=buildPrattPolynomial(n);options.quality=$("quality").value;options.limit=Number($("iterations").value);
+    if(changed){underlay=null;overlay=null;}
+    settings.close();scheduleRender(0);
+  };
+  $("saveImage").onclick=()=>{
+    paint();canvas.toBlob(blob=>{if(!blob){notify("PNG konnte nicht erstellt werden.");return;}
+      const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="zeta-pratt-k1-n"+options.prattN+"-zoom.png";a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    },"image/png");
+  };
+  if(!document.documentElement.requestFullscreen)$("fullscreen").hidden=true;
+  else $("fullscreen").onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch(_){notify("Vollbild ist in diesem Browser nicht verfügbar.");}};
+  document.addEventListener("keydown",e=>{
+    if(settings.open||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+    if(e.key==="+"||e.key==="="){e.preventDefault();zoomAt(cssW/2,cssH/2,.5);}
+    if(e.key==="-"){e.preventDefault();zoomAt(cssW/2,cssH/2,2);}
+    if(e.key.toLowerCase()==="r")$("reset").click();
+    const u=view.span/Math.min(cssW,cssH)*50;
+    if(e.key==="ArrowLeft"){e.preventDefault();view.cx-=u;scheduleRender();}
+    if(e.key==="ArrowRight"){e.preventDefault();view.cx+=u;scheduleRender();}
+    if(e.key==="ArrowUp"){e.preventDefault();view.cy+=u;scheduleRender();}
+    if(e.key==="ArrowDown"){e.preventDefault();view.cy-=u;scheduleRender();}
+  });
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){cancelRender();pointers.clear();gesture=null;canvas.classList.remove("dragging");}
+    else scheduleRender(0);
+  });
+  function resize(){
+    const r=stage.getBoundingClientRect();if(r.width===cssW&&r.height===cssH)return;
+    cssW=r.width;cssH=r.height;dpr=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.max(1,Math.round(cssW*dpr));canvas.height=Math.max(1,Math.round(cssH*dpr));scheduleRender(180);
+  }
+  new ResizeObserver(resize).observe(stage);
+  try{
+    const p=new URLSearchParams(location.hash.slice(1)),cx=Number(p.get("x")),cy=Number(p.get("y")),span=Number(p.get("s"));
+    const legacy=p.has("f"),legacyMap={A:4,B:5,E:3,F:5};
+    let chosen=legacy?(legacyMap[p.get("f")]||4):Number(p.get("n"));
+    if(!Number.isInteger(chosen)||chosen<2||chosen>PRATT_MAX_N)chosen=4;
+    options.prattN=chosen;options.coeffs=buildPrattPolynomial(chosen);
+    if(p.has("x")&&p.has("y")&&p.has("s")&&Number.isFinite(cx)&&Number.isFinite(cy)&&Math.abs(cx)<1e6&&Math.abs(cy)<1e6&&span>1e-13&&span<=100){view.cx=cx;view.cy=cy;view.span=span;}
+    const iter=Number(legacy?p.get("n"):p.get("m"));
+    if([80,160,200,240,400].includes(iter))options.limit=iter;
+    if(["mobile","fine","high"].includes(p.get("q")))options.quality=p.get("q");
+  }catch(_){}
+  createPool();resize();updateLabels();
+  // Small read-only/public interface for reproducibility and embedding.
+  window.ZetaPratt=Object.freeze({
+    getState:()=>({view:{...view},options:{prattN:options.prattN,quality:options.quality,limit:options.limit},polynomial:polynomialText(options.coeffs,"x"),completed,rendering:!!current,workers:pool.length,fallback:!!fallback,lastMs,lastSize}),
+    goTo:(cx,cy,span)=>{
+      if(!Number.isFinite(cx)||!Number.isFinite(cy)||!Number.isFinite(span)||span<=0)throw new Error("Ungültige Koordinaten");
+      view.cx=cx;view.cy=cy;view.span=setSpan(span);scheduleRender(0);
+    }
+  });
+})();
+</script>
+</body>
+</html>
