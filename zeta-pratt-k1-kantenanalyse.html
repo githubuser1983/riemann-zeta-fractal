@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090d19">
+<meta name="description" content="Schwarzweiß-Zeta-Pratt: binäre Flächen, geometrisch lokalisierte Phasennähte und getrennte Abbruchgrenzen. Offline und mit Zoom.">
+<title>Zeta × Pratt · Schwarzweiß und Phasennähte</title>
+<style>
+  :root{color-scheme:dark;--bg:#090d19;--panel:#141b2b;--text:#edf3ff;--muted:#a8bbd2;--accent:#63e0e6;--line:#2c3a50}
+  *{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0;width:100%;height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  button,select,input{font:inherit;color:inherit}button{min-height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);padding:0 14px;cursor:pointer}
+  button:hover{background:#202d42}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  button:disabled{opacity:.5;cursor:default}select,input{width:100%;min-height:46px;background:#0b1120;border:1px solid var(--line);border-radius:10px;padding:10px}input{appearance:textfield}input::-webkit-inner-spin-button{opacity:1}
+  #app{height:100vh;height:100dvh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px max(14px,env(safe-area-inset-right)) 11px max(14px,env(safe-area-inset-left));padding-top:max(12px,env(safe-area-inset-top));flex:none;background:var(--bg)}
+  h1{font-size:19px;line-height:1.2;letter-spacing:-.025em;margin:0 0 5px;font-weight:600}
+  #formula{margin:0;color:var(--accent);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(72vw,720px)}header>div{min-width:0}
+  #openSettings{min-width:72px;font-size:13px}
+  #stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--bg);touch-action:none}
+  #fractal{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #fractal.dragging{cursor:grabbing}
+  .hud{position:absolute;pointer-events:none;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .hudLeft{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+  .chip{background:#090d19dc;border:1px solid #26344999;border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted);backdrop-filter:blur(8px)}
+  #renderStatus{min-width:100px}#zoomLabel{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  #gestureHint{position:absolute;pointer-events:none;left:50%;bottom:14px;transform:translateX(-50%);padding:8px 13px;background:#090d19df;border-radius:12px;color:#d3e2f3;font-size:12px;white-space:nowrap;transition:opacity .3s}
+  #gestureHint.used{opacity:0}
+  footer{flex:none;background:var(--bg);padding:10px max(14px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+  .toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .zoomButtons{display:flex;gap:7px}.zoomButtons button{width:47px;padding:0;font-size:24px}
+  .actions{display:flex;gap:7px}.actions button{font-size:13px;padding:0 12px}
+  #coordinates{font:11px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--muted);margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  dialog{width:min(440px,calc(100% - 28px));max-height:calc(100dvh - 40px);padding:22px;border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--text);box-shadow:0 20px 90px #0008;overflow:auto}
+  dialog::backdrop{background:#030711bc;backdrop-filter:blur(5px)}
+  dialog h2{margin:0 0 18px;font-size:21px;letter-spacing:-.03em}
+  .field{display:block;margin:0 0 16px}.field span{display:block;margin:0 0 8px;font-size:13px;color:var(--muted)}
+  .dialogActions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+  .primary{background:var(--accent);color:#071a20;border-color:var(--accent);font-weight:600}.primary:hover{background:#8deded}
+  .polyPreview{display:block;margin-top:9px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#0b1120;color:var(--accent);font:12px ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.5;overflow-wrap:anywhere}.note{font-size:12px;line-height:1.55;color:var(--muted);margin:18px 0 0}.note code{color:var(--text)}
+  #toast{position:fixed;z-index:4;left:50%;bottom:105px;transform:translateX(-50%);background:#1c2b40;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 16px;max-width:calc(100% - 28px);font-size:13px;box-shadow:0 8px 36px #0007;display:none}
+  #stage{background:white}#probeBox{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 24px);white-space:pre-line;font:11px/1.5 ui-monospace,monospace;pointer-events:none}#probe.active{background:var(--accent);color:#071a20}.toolbar{flex-wrap:wrap}.actions{flex-wrap:wrap}#quickMode{width:auto;max-width:180px;min-height:44px;font-size:12px;padding:8px}#saveSvg[hidden]{display:none}
+  @media(max-width:370px){header{padding-left:10px;padding-right:10px}h1{font-size:18px}#formula{font-size:11px}.actions button{padding:0 9px}.toolbar{gap:6px}.zoomButtons{gap:5px}.zoomButtons button{width:42px}}
+  @media(max-height:460px){header{padding-top:6px;padding-bottom:6px}h1{font-size:16px;margin-bottom:3px}footer{padding-top:6px;padding-bottom:6px}#coordinates{margin-top:5px}.hud{top:8px}#gestureHint{bottom:8px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div><h1>Zeta × Pratt · Schwarzweiß</h1><p id="formula">zₘ₊₁ = ζ(f₄,₁(zₘ)) = ζ(zₘ²)</p></div>
+    <button id="openSettings" aria-haspopup="dialog">Einstellen</button>
+  </header>
+  <main id="stage" aria-label="Interaktive Fraktalansicht">
+    <canvas id="fractal" role="img" aria-label="Zeta-Pratt-Fraktal. Mit Ziehen verschieben, mit zwei Fingern oder dem Mausrad zoomen."></canvas>
+    <div class="hud"><div class="hudLeft"><span id="renderStatus" class="chip" role="status" aria-live="polite">Lädt …</span><span id="analysisLabel" class="chip">SW-Flächen</span></div><span id="zoomLabel" class="chip">1×</span></div>
+    <div id="gestureHint">Ziehen · Pinch-Zoom · Doppeltippen</div>
+    <div id="probeBox" class="chip" hidden></div>
+  </main>
+  <footer>
+    <div class="toolbar">
+      <div class="zoomButtons"><button id="zoomOut" aria-label="Herauszoomen">−</button><button id="zoomIn" aria-label="Hineinzoomen">+</button></div>
+      <select id="quickMode" aria-label="Schwarzweißansicht"><option value="binary">SW-Flächen</option><option value="seams">Nur Phasennähte</option><option value="stops">Nur Abbruchgrenzen</option></select>
+      <div class="actions"><button id="probe" aria-pressed="false">Probe</button><button id="reset">Reset</button><button id="saveImage" disabled>PNG</button><button id="saveSvg" disabled hidden>SVG</button><button id="fullscreen" aria-label="Vollbild">Vollbild</button></div>
+    </div>
+    <div id="coordinates">Mitte: 0 + 0i · 160 Iterationen</div>
+  </footer>
+</div>
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <h2 id="settingsTitle">Ansicht einstellen</h2>
+  <label class="field"><span>Pratt-Index n für f<sub>n,1</sub>(x)</span>
+    <input id="prattN" type="number" min="2" max="1000000" step="1" value="4" inputmode="numeric" list="prattSuggestions" autocomplete="off">
+    <datalist id="prattSuggestions">
+      <option value="2"><option value="3"><option value="4"><option value="5"><option value="6"><option value="7"><option value="8"><option value="9"><option value="10"><option value="11"><option value="12"><option value="16"><option value="32">
+    </datalist>
+    <output id="polyPreview" class="polyPreview">f₄,₁(x) = x²</output>
+  </label>
+  <label class="field"><span>Schwarzweißansicht</span>
+    <select id="analysisMode">
+      <option value="binary">SW-Flächen · Vorzeichen des Imaginärteils</option>
+      <option value="seams">Nur Phasennähte · negative reelle Halbgerade</option>
+      <option value="stops">Nur Abbruchgrenzen · Schritt / Status / Periode</option>
+    </select>
+    <output id="analysisHelp" class="polyPreview">Reine Schwarzweißflächen ohne Grauverlauf.</output>
+  </label>
+  <label class="field"><span>Bahnende</span><select id="stopMode"><option value="adaptive">Automatisch · wie deine Vorlage</option><option value="fixed">Feste Iteration · Kontur eines einzelnen Gᵐ</option></select></label>
+  <label class="field" id="fixedField" hidden><span>Ausgeführte Iterationen m</span><input id="fixedM" type="number" min="1" max="80" value="4" step="1" inputmode="numeric"></label>
+  <label class="field"><span>Phasenrotation α in Grad</span><input id="angle" type="number" min="-360" max="360" value="0" step="5" inputmode="decimal"><output class="polyPreview">W = e⁻ⁱᵅ · Gᵐ(z). Die Naht liegt bei Im(W)=0 und Re(W)&lt;0.</output></label>
+  <label class="field"><span>Auflösung</span><select id="quality"><option value="mobile">Mobil · schnell</option><option value="fine">Fein</option><option value="high">Sehr fein · braucht länger</option></select></label>
+  <label class="field"><span>Iterationslimit</span><select id="iterations"><option value="80">80 · schneller</option><option value="160" selected>160 · wie die Vorlage</option><option value="200">200</option><option value="240">240</option><option value="400">400 · braucht länger</option></select></label>
+  <p class="note">k = 1: <code>f₁,₁=1</code>, <code>f₂,₁=x</code>; für Primzahlen <code>p&gt;2</code> gilt <code>fₚ,₁=1+fₚ₋₁,₁</code>, für zusammengesetzte n das Produkt über die Primfaktoren. Für das Fraktal wird <code>zₘ₊₁=ζ(fₙ,₁(zₘ))</code> iteriert.</p>
+  <p class="note">Die Ansicht wird beim Zoomen neu berechnet. Höhere Auflösung macht feine Strukturen sichtbar; mehr Iterationen untersuchen längere Orbits.</p>
+  <p class="note"><b>SW-Flächen:</b> Im(W)≥0 wird weiß, Im(W)&lt;0 schwarz. Das erzeugt Grenzen auf beiden reellen Halbgeraden. <b>Nur Phasennähte:</b> schwarze Linien auf Weiß, ausschließlich für die negative Halbgerade. Nur Nachbarn mit gleicher ausgeführter Iterationszahl, gleichem Status und gleicher erkannter Periode werden verbunden. Kandidaten werden durch sechs Halbierungen im Startpunktraum auf 1/64 Pixel eingegrenzt; vier übereinstimmende Zellecken sind zum Verbinden nötig.</p>
+  <p class="note"><b>Feste Iteration:</b> Es wird genau Gᵐ betrachtet, ohne vorzeitige Periodenerkennung. Punkte, die vorher eine numerische Schranke oder Polnähe erreichen, bleiben weiß und liefern keine Phasennähte. Weiß kann daher auch einen nicht ausgewerteten Bereich bedeuten. Die Maske ist eine numerische Kontur auf einem Raster, kein analytischer Beweis für sämtliche Nähte.</p>
+  <p class="note"><b>Abbruchgrenzen:</b> Wechsel von ausgeführten Schritten, Status oder erkannter Periode werden getrennt gezeichnet; dies sind Grenzen der Rechenregeln. Status: 0 kurze Periode, 1 numerische Schranke, 2 Polnähe, 3 nicht-endlicher Wert, 4 Limit / Zieliteration. Ein großer Zwischenwert ist kein bewiesenes Fluchtkriterium.</p>
+  <p class="note">Mit <b>Probe</b> und einem Tipp werden Startpunkt, Endwert und die Nähe zur erkannten Naht angezeigt. PNG exportiert nur Schwarz und Weiß. In den Linienansichten exportiert SVG die lokalisierten Kontursegmente als Vektorlinien. Taste A wechselt die Ansicht. Alles funktioniert ohne Netzwerk.</p>
+  <div class="dialogActions"><button id="closeSettings">Abbrechen</button><button id="applySettings" class="primary">Anwenden</button></div>
+</dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+"use strict";
+// k=1 Pratt polynomials: f_1=1, f_2=x; for prime p>2, f_p=1+f_{p-1};
+// for composite n, f_n is the product of the prime-polynomials with multiplicity.
+const PRATT_MAX_N=1000000;
+const prattMemo=new Map([[1,[1]],[2,[0,1]]]);
+function isPrimeInt(n){
+  if(n<2)return false;if(n%2===0)return n===2;
+  for(let d=3;d*d<=n;d+=2)if(n%d===0)return false;
+  return true;
+}
+function polyMul(a,b){
+  const c=new Array(a.length+b.length-1).fill(0);
+  for(let i=0;i<a.length;i++)for(let j=0;j<b.length;j++)c[i+j]+=a[i]*b[j];
+  while(c.length>1&&c[c.length-1]===0)c.pop();
+  return c;
+}
+function buildPrattPolynomial(n){
+  n=Number(n);
+  if(!Number.isInteger(n)||n<1||n>PRATT_MAX_N)throw new Error("n muss eine ganze Zahl von 1 bis "+PRATT_MAX_N+" sein.");
+  if(prattMemo.has(n))return prattMemo.get(n).slice();
+  let result;
+  if(isPrimeInt(n)){
+    result=buildPrattPolynomial(n-1);result[0]=(result[0]||0)+1;
+  }else{
+    result=[1];let m=n;
+    for(let p=2;p*p<=m;p+=(p===2?1:2)){
+      while(m%p===0){result=polyMul(result,buildPrattPolynomial(p));m/=p;}
+    }
+    if(m>1)result=polyMul(result,buildPrattPolynomial(m));
+  }
+  prattMemo.set(n,result.slice());return result;
+}
+const superscript=n=>String(n).split("").map(d=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]).join("");
+const subscript=n=>String(n).split("").map(d=>"₀₁₂₃₄₅₆₇₈₉"[Number(d)]).join("");
+function polynomialText(coeffs,variable="x"){
+  const terms=[];
+  for(let d=0;d<coeffs.length;d++){
+    const c=coeffs[d];if(!c)continue;
+    if(d===0)terms.push(String(c));
+    else{const lead=c===1?"":c+"·";terms.push(lead+variable+(d===1?"":superscript(d)));}
+  }
+  return terms.length?terms.join(" + "):"0";
+}
+
+// Self-contained scalar-double zeta renderer.
+// No network requests, dependencies, analytics or external assets.
+function createNumerics() {
+  const PI=Math.PI, L2=Math.log(2), LP=Math.log(PI), logs=new Float64Array(256);
+  for(let n=1;n<logs.length;n++)logs[n]=Math.log(n);
+  const bc=[1/12,-1/720,1/30240,-1/1209600,1/47900160,-691/1307674368000,1/74724249600,-3617/10670622842880000,43867/5109094217170944000,-174611/802857662698291200000];
+  const lanczos=[.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  const histR=new Float64Array(12),histI=new Float64Array(12);
+  let outR=0,outI=0,gr=0,gi=0;
+  let status=4,steps=0,period=0,phase=0,mag=0,completedSteps=0,endR=0,endI=0,valid=false;
+  function logGamma(r,i) {
+    r-=1;let vr=lanczos[0],vi=0;
+    for(let k=1;k<9;k++){const a=r+k,d=a*a+i*i;vr+=lanczos[k]*a/d;vi-=lanczos[k]*i/d;}
+    const tr=r+7.5,lt=Math.log(Math.hypot(tr,i)),at=Math.atan2(i,tr);
+    gr=.5*Math.log(2*PI)+(r+.5)*lt-i*at-tr+Math.log(Math.hypot(vr,vi));
+    gi=(r+.5)*at+i*lt-i+Math.atan2(vi,vr);
+  }
+  function em(r,i,N) {
+    let rr=0,ii=0;
+    for(let n=1;n<N;n++){
+      const l=logs[n]||Math.log(n),e=Math.exp(-r*l),p=i*l;
+      rr+=e*Math.cos(p);ii-=e*Math.sin(p);
+    }
+    const l=logs[N]||Math.log(N),cs=Math.cos(i*l),sn=Math.sin(i*l);
+    const e=Math.exp((1-r)*l),d=(r-1)*(r-1)+i*i;
+    rr+=e*(cs*(r-1)-sn*i)/d;ii+=e*(-sn*(r-1)-cs*i)/d;
+    const en=Math.exp(-r*l);rr+=.5*en*cs;ii-=.5*en*sn;
+    let pr=1,pi=0,j=0,factor=en/N;
+    const invSquare=1/(N*N);
+    for(let k=1;k<=10;k++){
+      const m=2*k-1;
+      while(j<m){const t=pr*(r+j)-pi*i;pi=pr*i+pi*(r+j);pr=t;j++;}
+      const weight=bc[k-1]*factor;
+      rr+=weight*(pr*cs+pi*sn);ii+=weight*(pi*cs-pr*sn);
+      factor*=invSquare;
+    }
+    outR=rr;outI=ii;
+  }
+  function zetaCore(r,i,trunc=24) {
+    if(r===0&&i===0){outR=-.5;outI=0;return;}
+    // Stable local Taylor expansion: ζ(0)=-1/2, ζ'(0)=-log(2π)/2.
+    // Avoid cancellation of sin(πs/2) with the reflected pole at 1 near s=0.
+    if(Math.hypot(r,i)<1e-8){const d=-.5*Math.log(2*PI);outR=-.5+d*r;outI=d*i;return;}
+    const N=Math.max(trunc,24+Math.floor(.9*Math.abs(i)));
+    if(r>=.5){em(r,i,N);return;}
+    if(i===0&&r<0&&r/2===Math.round(r/2)){outR=0;outI=0;return;}
+    logGamma(1-r,-i);
+    const e=Math.exp(r*L2+(r-1)*LP+gr),p=i*(L2+LP)+gi;
+    const er=e*Math.cos(p),ei=e*Math.sin(p);
+    const sr=Math.sin(PI*r/2)*Math.cosh(PI*i/2),si=Math.cos(PI*r/2)*Math.sinh(PI*i/2);
+    const ar=er*sr-ei*si,ai=er*si+ei*sr;
+    em(1-r,-i,N);
+    const nr=ar*outR-ai*outI;
+    outI=ar*outI+ai*outR;outR=nr;
+  }
+  let polyR=0,polyI=0;
+  function evalPolynomial(coeffs,r,i){
+    let rr=0,ii=0;
+    for(let j=coeffs.length-1;j>=0;j--){
+      const nr=rr*r-ii*i+coeffs[j];
+      ii=rr*i+ii*r;rr=nr;
+    }
+    polyR=rr;polyI=ii;
+  }
+  function orbit(r,i,coeffs,limit,stopMode="adaptive",fixedM=4) {
+    const target=stopMode==="fixed"?fixedM:limit;
+    status=4;steps=target;period=0;completedSteps=0;
+    for(let n=0;n<target;n++){
+      evalPolynomial(coeffs,r,i);
+      const ar=polyR,ai=polyI,a=Math.hypot(ar,ai);
+      if(!Number.isFinite(a)||a>200||ar< -60||Math.abs(ai)>120){status=1;steps=n;break;}
+      if(Math.hypot(ar-1,ai)<1e-11){status=2;steps=n;break;}
+      zetaCore(ar,ai);
+      if(!Number.isFinite(outR)||!Number.isFinite(outI)){status=3;steps=n;break;}
+      histR[n%12]=r;histI[n%12]=i;
+      let returned=0;
+      for(let p=1;stopMode!=="fixed"&&p<=Math.min(5,n);p++){
+        const prev=(n+1-p)%12,prev2=(n-p)%12;
+        if(Math.hypot(outR-histR[prev],outI-histI[prev])<1e-9*(1+Math.hypot(outR,outI))&&
+           Math.hypot(r-histR[prev2],i-histI[prev2])<1e-9*(1+Math.hypot(r,i))){returned=p;break;}
+      }
+      r=outR;i=outI;completedSteps++;
+      if(returned){status=0;steps=n;period=returned;break;}
+    }
+    endR=r;endI=i;phase=Math.atan2(i,r);mag=Math.log1p(Math.hypot(r,i));
+    valid=status!==3&&Number.isFinite(r)&&Number.isFinite(i)&&Math.hypot(r,i)>1e-12&&(stopMode!=="fixed"||completedSteps===target);
+  }
+  function branchKey(){return completedSteps*64+status*8+period+1;}
+  function setBW(pixels,offset,value){pixels[offset]=pixels[offset+1]=pixels[offset+2]=value;pixels[offset+3]=255;}
+  // Test the negative-ray crossing of the straight output-space segment.
+  // Equal branch keys prevent drawing a jump of the stopping rule as a phase seam.
+  function cutCrossing(ar,ai,br,bi,keyA,keyB){
+    if(!keyA||keyA!==keyB||!Number.isFinite(ar+ai+br+bi)||(ai<0)===(bi<0))return -1;
+    const t=ai/(ai-bi),r=ar+t*(br-ar);
+    return r< -1e-12&&Math.abs(Math.atan2(ai,ar)-Math.atan2(bi,br))>PI?t:-1;
+  }
+  function renderTile(job) {
+    const count=job.width*job.rows,pixels=new Uint8ClampedArray(count*4),field=new Float64Array(count*2),keys=new Uint32Array(count),branches=new Uint32Array(count),counts=[0,0,0,0,0];
+    const angle=(job.angle||0)*PI/180,cs=Math.cos(angle),sn=Math.sin(angle);
+    for(let y=0;y<job.rows;y++){
+      const im=job.cy+(job.height/2-(job.y+y+.5))*job.unit;
+      for(let x=0;x<job.width;x++){
+        const re=job.cx+(x+.5-job.width/2)*job.unit;
+        const j=y*job.width+x;
+        orbit(re,im,job.coeffs,job.limit,job.stopMode,job.fixedM);
+        const wr=cs*endR+sn*endI,wi=cs*endI-sn*endR;
+        field[2*j]=wr;field[2*j+1]=wi;branches[j]=branchKey();keys[j]=valid?branches[j]:0;
+        setBW(pixels,j*4,job.mode==="binary"&&valid&&wi<0?0:255);counts[status]++;
+      }
+    }
+    return {type:"tile",generation:job.generation,pass:job.pass,y:job.y,rows:job.rows,width:job.width,counts,buffer:pixels.buffer,field:field.buffer,keys:keys.buffer,branches:branches.buffer};
+  }
+  function renderContours(job){
+    const w=job.width,h=job.height,count=w*h,field=new Float64Array(job.field),keys=new Uint32Array(job.keys),branches=new Uint32Array(job.branches);
+    const horizontal=new Float32Array(count),vertical=new Float32Array(count);horizontal.fill(-1);vertical.fill(-1);
+    const angle=(job.angle||0)*PI/180,cs=Math.cos(angle),sn=Math.sin(angle),seams=job.mode==="seams";
+    let candidates=0,rejected=0,refined=0;
+    function edge(a,b,dx,dy){
+      if(!seams)return branches[a]!==branches[b] ? .5 : -1;
+      let t=cutCrossing(field[a*2],field[a*2+1],field[b*2],field[b*2+1],keys[a],keys[b]);
+      if(t<0)return -1;candidates++;
+      const x=a%w+.5,y=Math.floor(a/w)+.5,key=keys[a];
+      let lo=0,hi=1,ar=field[a*2],ai=field[a*2+1],br=field[b*2],bi=field[b*2+1];
+      for(let k=0;k<6;k++){
+        const mid=(lo+hi)/2,re=job.cx+(x+dx*mid-w/2)*job.unit,im=job.cy+(h/2-y-dy*mid)*job.unit;
+        orbit(re,im,job.coeffs,job.limit,job.stopMode,job.fixedM);
+        if(!valid||branchKey()!==key){rejected++;return -1;}
+        const mr=cs*endR+sn*endI,mi=cs*endI-sn*endR;
+        if((ai<0)!==(mi<0)){hi=mid;br=mr;bi=mi;}else{lo=mid;ar=mr;ai=mi;}
+      }
+      t=cutCrossing(ar,ai,br,bi,key,key);
+      if(t<0){rejected++;return -1;}refined++;
+      return lo+t*(hi-lo);
+    }
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const a=y*w+x;if(x+1<w)horizontal[a]=edge(a,a+1,1,0);if(y+1<h)vertical[a]=edge(a,a+w,0,1);
+    }
+    const lines=[];
+    function segment(a,b){lines.push(a[0],a[1],b[0],b[1]);}
+    for(let y=0;y<h-1;y++)for(let x=0;x<w-1;x++){
+      const a=y*w+x,b=a+1,c=a+w+1,d=a+w;
+      if(seams&&(!keys[a]||keys[a]!==keys[b]||keys[a]!==keys[c]||keys[a]!==keys[d]))continue;
+      const ts=[horizontal[a],vertical[b],horizontal[d],vertical[a]],pts=[null,null,null,null];
+      if(ts[0]>=0)pts[0]=[x+.5+ts[0],y+.5];if(ts[1]>=0)pts[1]=[x+1.5,y+.5+ts[1]];
+      if(ts[2]>=0)pts[2]=[x+.5+ts[2],y+1.5];if(ts[3]>=0)pts[3]=[x+.5,y+.5+ts[3]];
+      const hits=pts.map((p,i)=>p?i:-1).filter(i=>i>=0);
+      if(hits.length===2)segment(pts[hits[0]],pts[hits[1]]);
+      else if(hits.length===4){
+        if(seams){
+          // Resolve a marching-squares saddle by an actual central sample.
+          const re=job.cx+(x+1-w/2)*job.unit,im=job.cy+(h/2-y-1)*job.unit;
+          orbit(re,im,job.coeffs,job.limit,job.stopMode,job.fixedM);
+          if(!valid||branchKey()!==keys[a])continue;
+          const middle=cs*endI-sn*endR;
+          if((middle<0)===(field[a*2+1]<0)){segment(pts[0],pts[1]);segment(pts[2],pts[3]);}
+          else{segment(pts[0],pts[3]);segment(pts[1],pts[2]);}
+        }else{for(const i of hits)segment(pts[i],[x+1,y+1]);}
+      }else if(!seams&&hits.length===3){for(const i of hits)segment(pts[i],[x+1,y+1]);}
+    }
+    const pixels=new Uint8ClampedArray(count*4);pixels.fill(255);
+    for(let j=0;j<lines.length;j+=4){
+      const x0=lines[j]-.5,y0=lines[j+1]-.5,dx=lines[j+2]-lines[j],dy=lines[j+3]-lines[j+1],n=Math.max(1,Math.ceil(Math.max(Math.abs(dx),Math.abs(dy))*2));
+      for(let k=0;k<=n;k++){const x=Math.round(x0+dx*k/n),y=Math.round(y0+dy*k/n);if(x>=0&&x<w&&y>=0&&y<h)setBW(pixels,(y*w+x)*4,0);}
+    }
+    return {type:"contours",generation:job.generation,pass:job.pass,width:w,height:h,buffer:pixels.buffer,lines:new Float32Array(lines).buffer,candidates,rejected,refined};
+  }
+  return {
+    renderTile,renderContours,cutCrossing,
+    zeta:(r,i,trunc=24)=>{zetaCore(r,i,trunc);return [outR,outI];},
+    inspectOrbit:(r,i,coeffs,limit,stopMode="adaptive",fixedM=4)=>{orbit(r,i,coeffs,limit,stopMode,fixedM);return {status,steps,period,completedSteps,phase,mag,end:[endR,endI],valid,key:valid?branchKey():0};}
+  };
+}
+
+(function(){
+  const baseView={cx:0,cy:0,span:6};
+  const $=id=>document.getElementById(id),canvas=$("fractal"),stage=$("stage"),ctx=canvas.getContext("2d",{alpha:false});
+  const view={...baseView},options={prattN:4,coeffs:buildPrattPolynomial(4),quality:"mobile",limit:160,mode:"binary",stopMode:"adaptive",fixedM:4,angle:0};
+  let cssW=0,cssH=0,dpr=1,underlay=null,overlay=null,current=null,generation=0,renderTimer=0,paintQueued=false;
+  let completed=0,renderStart=0,lastMs=0,lastSize="",fallback=null,fallbackBusy=false,workerUrl=null;
+  const pool=[],pointers=new Map();let gesture=null,tap=null,dragged=false,toastTimer=0,lastTouch=0;
+  const status=$("renderStatus"),settings=$("settings"),probeEngine=createNumerics();let probeActive=false,lastResult=null;
+
+  function notify(text){$("toast").textContent=text;$("toast").style.display="block";clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").style.display="none",3000);}
+  function pretty(n){return Math.abs(n)<1e-4&&n!==0?n.toExponential(5):Number(n.toPrecision(10)).toString();}
+  const modeNames={binary:"SW-Flächen",seams:"Nur Phasennähte",stops:"Nur Abbruchgrenzen"};
+  const modeHelp={
+    binary:"Im(W)≥0 weiß, Im(W)<0 schwarz. Grenzen entstehen auf beiden reellen Halbgeraden; beim automatischen Bahnende auch durch wechselnde Abbruchschritte. Ungültige Werte bleiben weiß.",
+    seams:"Nur die negative Halbgerade: Im(W)=0 und Re(W)<0. Gleiche Schrittzahl, gleicher Status und gleiche Periode; sechs Halbierungen lokalisieren die Kreuzung auf der Rasterkante.",
+    stops:"Nur Wechsel von ausgeführten Schritten, Status oder erkannter Periode. Dies sind Rechengrenzen; Phasennähte werden hier nicht gezeichnet."
+  };
+  function updateLabels(){
+    const poly=polynomialText(options.coeffs,"zₘ");
+    const full="zₘ₊₁ = ζ(f"+subscript(options.prattN)+",₁(zₘ)) = ζ("+poly+")";
+    $("formula").textContent=full;$("formula").title=full;
+    const zoom=baseView.span/view.span;
+    $("zoomLabel").textContent=(zoom>=1e5?zoom.toExponential(2):zoom.toLocaleString("de-DE",{maximumFractionDigits:2}))+"×";
+    $("analysisLabel").textContent=modeNames[options.mode]||options.mode;
+    $("quickMode").value=options.mode;$("saveSvg").hidden=options.mode==="binary";
+    $("coordinates").textContent="n = "+options.prattN+" · Mitte: "+pretty(view.cx)+(view.cy<0?" − ":" + ")+pretty(Math.abs(view.cy))+"i · "+(options.stopMode==="fixed"?"fest m="+options.fixedM:"Limit "+options.limit)+" · α="+options.angle+"°";
+  }
+  function drawLayer(layer){
+    if(!layer)return;const unit=view.span/Math.min(cssW,cssH),left=layer.cx-layer.w*layer.unit/2,top=layer.cy+layer.h*layer.unit/2;
+    ctx.drawImage(layer.image,(left-view.cx)/unit+cssW/2,(view.cy-top)/unit+cssH/2,layer.w*layer.unit/unit,layer.h*layer.unit/unit);
+  }
+  function paint(){
+    paintQueued=false;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle="#ffffff";ctx.fillRect(0,0,cssW,cssH);
+    ctx.imageSmoothingEnabled=false;drawLayer(underlay);drawLayer(overlay);updateLabels();
+  }
+  function requestPaint(){if(!paintQueued){paintQueued=true;requestAnimationFrame(paint);}}
+  function captureView(){
+    paint();const image=document.createElement("canvas");image.width=canvas.width;image.height=canvas.height;image.getContext("2d").drawImage(canvas,0,0);
+    underlay={image,w:image.width,h:image.height,cx:view.cx,cy:view.cy,unit:view.span/Math.min(image.width,image.height)};overlay=null;
+  }
+  function cancelRender(){generation++;current=null;clearTimeout(renderTimer);}
+  function rememberView(){
+    const p=new URLSearchParams({k:"1",n:String(options.prattN),x:view.cx.toPrecision(16),y:view.cy.toPrecision(16),s:view.span.toPrecision(16),m:String(options.limit),q:options.quality,a:options.mode,b:options.stopMode,t:String(options.fixedM),r:String(options.angle)});
+    try{history.replaceState(null,"","#"+p.toString());}catch(_){}
+  }
+  function scheduleRender(delay=140){
+    cancelRender();status.textContent="Neu berechnen …";status.dataset.state="waiting";
+    $("saveImage").disabled=true;$("saveSvg").disabled=true;$("probeBox").hidden=true;
+    renderTimer=setTimeout(beginRender,delay);requestPaint();
+  }
+  function beginRender(){
+    if(!cssW||!cssH||document.hidden)return;
+    captureView();renderStart=performance.now();
+    const target=Math.min(fallback?300:{mobile:420,fine:700,high:1100}[options.quality],Math.ceil(Math.max(cssW,cssH)*Math.min(dpr,1.5)));
+    const passes=[96,180,target].filter((v,i,a)=>v<=target&&a.indexOf(v)===i).sort((a,b)=>a-b);
+    if(!passes.includes(target))passes.push(target);
+    current={generation,passes,index:0,view:{...view},options:{...options},tasks:[],received:0,counts:[0,0,0,0,0]};
+    startPass();
+  }
+  function startPass(){
+    if(!current)return;
+    const c=current,longest=c.passes[c.index],scale=longest/Math.max(cssW,cssH);
+    const w=Math.max(16,Math.round(cssW*scale)),h=Math.max(16,Math.round(cssH*scale));
+    const image=document.createElement("canvas");image.width=w;image.height=h;
+    overlay={image,w,h,cx:c.view.cx,cy:c.view.cy,unit:c.view.span/Math.min(w,h)};
+    c.context=image.getContext("2d");c.width=w;c.height=h;c.received=0;c.counts=[0,0,0,0,0];c.tasks=[];
+    c.field=new Float64Array(w*h*2);c.keys=new Uint32Array(w*h);c.branches=new Uint32Array(w*h);c.contouring=false;c.lines=null;
+    const rows=fallback?1:options.quality==="high"?4:8;
+    for(let y=0;y<h;y+=rows)c.tasks.push({type:"tile",generation:c.generation,pass:c.index,width:w,height:h,y,rows:Math.min(rows,h-y),cx:c.view.cx,cy:c.view.cy,unit:overlay.unit,coeffs:c.options.coeffs,limit:c.options.limit,mode:c.options.mode,stopMode:c.options.stopMode,fixedM:c.options.fixedM,angle:c.options.angle});
+    status.textContent=c.index===0?"Vorschau …":"Verfeinern · 0 %";status.dataset.state="rendering";
+    pump();
+  }
+  function accept(result){
+    if(!current||result.generation!==current.generation||result.pass!==current.index)return;
+    const c=current;
+    if(result.type==="contours"){
+      c.context.putImageData(new ImageData(new Uint8ClampedArray(result.buffer),c.width,c.height),0,0);
+      c.lines=new Float32Array(result.lines);c.contourStats={candidates:result.candidates,rejected:result.rejected,refined:result.refined};finishPass();return;
+    }
+    if(c.options.mode==="binary")c.context.putImageData(new ImageData(new Uint8ClampedArray(result.buffer),result.width,result.rows),0,result.y);
+    c.field.set(new Float64Array(result.field),result.y*c.width*2);c.keys.set(new Uint32Array(result.keys),result.y*c.width);c.branches.set(new Uint32Array(result.branches),result.y*c.width);
+    c.received+=result.rows;for(let i=0;i<5;i++)c.counts[i]+=result.counts[i];
+    const progress=Math.round(100*c.received/c.height);
+    if(progress%8<3||c.received===c.height)status.textContent=(c.index===0?"Vorschau":"Verfeinern")+" · "+progress+" %";
+    requestPaint();
+    if(c.received===c.height){
+      if(c.options.mode==="binary")finishPass();
+      else{
+        c.contouring=true;status.textContent=c.options.mode==="seams"?"Phasennähte lokalisieren …":"Abbruchgrenzen zeichnen …";
+        c.tasks.push({type:"contours",generation:c.generation,pass:c.index,width:c.width,height:c.height,cx:c.view.cx,cy:c.view.cy,unit:overlay.unit,coeffs:c.options.coeffs,limit:c.options.limit,mode:c.options.mode,stopMode:c.options.stopMode,fixedM:c.options.fixedM,angle:c.options.angle,field:c.field.buffer,keys:c.keys.buffer,branches:c.branches.buffer});
+      }
+    }
+  }
+  function finishPass(){
+    const c=current;if(!c)return;underlay=overlay;overlay=null;
+    if(c.index+1<c.passes.length){c.index++;startPass();}
+    else{
+      completed++;lastMs=performance.now()-renderStart;lastSize=c.width+" × "+c.height;
+      lastResult={...underlay,options:{...c.options},lines:c.lines,contourStats:c.contourStats||null};
+      status.textContent="Fertig · "+lastSize+(c.lines?" · "+c.lines.length/4+" Segmente":"");status.dataset.state="done";current=null;
+      $("saveImage").disabled=false;$("saveSvg").disabled=false;rememberView();requestPaint();
+    }
+  }
+  function pump(){
+    if(!current)return;
+    if(fallback){
+      if(fallbackBusy||!current.tasks.length)return;
+      fallbackBusy=true;const task=current.tasks.shift();
+      setTimeout(()=>{try{accept(task.type==="contours"?fallback.renderContours(task):fallback.renderTile(task));}catch(e){renderError(e);}finally{fallbackBusy=false;pump();}},0);return;
+    }
+    for(const member of pool){
+      if(!current||!current.tasks.length)break;
+      if(!member.busy){member.busy=true;const task=current.tasks.shift();member.worker.postMessage(task,task.type==="contours"?[task.field,task.keys,task.branches]:[]);}
+    }
+  }
+  function renderError(error){status.textContent="Berechnung unterbrochen";status.dataset.state="error";notify(error.message||"Bitte geringere Auflösung wählen.");cancelRender();}
+  function useFallback(){
+    for(const member of pool)member.worker.terminate();pool.length=0;
+    if(workerUrl){URL.revokeObjectURL(workerUrl);workerUrl=null;}
+    fallback=createNumerics();fallbackBusy=false;scheduleRender(0);
+  }
+  function createPool(){
+    try{
+      const source="const engine=("+createNumerics.toString()+")();self.onmessage=function(event){try{const result=event.data.type==='contours'?engine.renderContours(event.data):engine.renderTile(event.data);const transfer=result.type==='contours'?[result.buffer,result.lines]:[result.buffer,result.field,result.keys,result.branches];self.postMessage(result,transfer);}catch(e){self.postMessage({error:e.message,generation:event.data.generation});}};";
+      workerUrl=URL.createObjectURL(new Blob([source],{type:"text/javascript"}));
+      const n=Math.max(1,Math.min(4,(navigator.hardwareConcurrency||2)-1));
+      for(let i=0;i<n;i++){
+        const worker=new Worker(workerUrl),member={worker,busy:false};pool.push(member);
+        worker.onmessage=e=>{member.busy=false;if(e.data.error){if(current&&e.data.generation===current.generation)renderError(new Error(e.data.error));}else accept(e.data);pump();};
+        worker.onerror=e=>{e.preventDefault();if(!fallback)useFallback();};
+      }
+    }catch(_){useFallback();}
+  }
+  function minimumSpan(){return Math.max(1e-13,Math.max(1,Math.abs(view.cx),Math.abs(view.cy))*Number.EPSILON*Math.min(cssW,cssH)*16);}
+  function setSpan(span){return Math.max(minimumSpan(),Math.min(span,100));}
+  function worldAt(x,y){const u=view.span/Math.min(cssW,cssH);return {r:view.cx+(x-cssW/2)*u,i:view.cy-(y-cssH/2)*u};}
+  function zoomAt(x,y,factor){
+    const a=worldAt(x,y),next=setSpan(view.span*factor),u=next/Math.min(cssW,cssH);
+    view.cx=a.r-(x-cssW/2)*u;view.cy=a.i+(y-cssH/2)*u;view.span=next;$("gestureHint").classList.add("used");scheduleRender(160);
+  }
+  function point(e){const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+  function resetGesture(){
+    const p=Array.from(pointers.values());
+    if(p.length>=2){
+      const m={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2};
+      gesture={pinch:true,span:view.span,distance:Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)),anchor:worldAt(m.x,m.y)};
+    }else if(p.length===1)gesture={pinch:false,x:p[0].x,y:p[0].y,cx:view.cx,cy:view.cy,unit:view.span/Math.min(cssW,cssH)};
+    else gesture=null;
+  }
+  canvas.addEventListener("pointerdown",e=>{
+    if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);
+    if(e.pointerType!=="mouse")lastTouch=performance.now();
+    pointers.set(e.pointerId,point(e));dragged=false;canvas.classList.add("dragging");if(!probeActive||pointers.size>1)cancelRender();resetGesture();
+  });
+  canvas.addEventListener("pointermove",e=>{
+    if(!pointers.has(e.pointerId)||!gesture)return;e.preventDefault();pointers.set(e.pointerId,point(e));
+    if(probeActive)cancelRender();
+    const p=Array.from(pointers.values());
+    if(gesture.pinch&&p.length>=2){
+      const m={x:(p[0].x+p[1].x)/2,y:(p[0].y+p[1].y)/2},d=Math.max(1,Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y));
+      view.span=setSpan(gesture.span*gesture.distance/d);const u=view.span/Math.min(cssW,cssH);
+      view.cx=gesture.anchor.r-(m.x-cssW/2)*u;view.cy=gesture.anchor.i+(m.y-cssH/2)*u;dragged=true;
+    }else if(p.length===1&&!gesture.pinch){
+      const dx=p[0].x-gesture.x,dy=p[0].y-gesture.y;view.cx=gesture.cx-dx*gesture.unit;view.cy=gesture.cy+dy*gesture.unit;
+      if(Math.hypot(dx,dy)>3)dragged=true;
+    }
+    $("gestureHint").classList.add("used");status.textContent="Zoom / Verschieben";status.dataset.state="moving";requestPaint();
+  });
+  function pointerEnd(e){
+    if(!pointers.has(e.pointerId))return;
+    const wasPinch=gesture&&gesture.pinch,p=point(e);pointers.delete(e.pointerId);
+    if(e.type==="pointerup"&&probeActive&&!dragged&&!wasPinch){
+      inspectPoint(p);tap=null;resetGesture();canvas.classList.remove("dragging");
+      if(!lastResult||lastResult.cx!==view.cx||lastResult.cy!==view.cy||Math.abs(lastResult.unit*Math.min(lastResult.w,lastResult.h)-view.span)>view.span*1e-12)scheduleRender(100);
+      return;
+    }
+    if(e.type==="pointerup"&&e.pointerType!=="mouse"&&!dragged&&!wasPinch){
+      const now=performance.now();
+      if(tap&&now-tap.time<340&&Math.hypot(p.x-tap.x,p.y-tap.y)<28){zoomAt(p.x,p.y,.5);tap=null;}else tap={...p,time:now};
+    }else tap=null;
+    resetGesture();
+    if(!pointers.size){canvas.classList.remove("dragging");scheduleRender(100);}
+  }
+  canvas.addEventListener("pointerup",pointerEnd);canvas.addEventListener("pointercancel",pointerEnd);
+  canvas.addEventListener("dblclick",e=>{e.preventDefault();if(lastTouch&&performance.now()-lastTouch<1000)return;const p=point(e);zoomAt(p.x,p.y,.5);});
+  canvas.addEventListener("wheel",e=>{
+    e.preventDefault();const p=point(e);let delta=e.deltaY;if(e.deltaMode===1)delta*=16;else if(e.deltaMode===2)delta*=cssH;
+    zoomAt(p.x,p.y,Math.exp(Math.max(-500,Math.min(500,delta))*.0015));
+  },{passive:false});
+  $("zoomIn").onclick=()=>zoomAt(cssW/2,cssH/2,.5);
+  $("zoomOut").onclick=()=>zoomAt(cssW/2,cssH/2,2);
+  function validPrattN(value){const n=Number(value);return Number.isInteger(n)&&n>=2&&n<=PRATT_MAX_N?n:null;}
+  function updatePolynomialPreview(){
+    const n=validPrattN($("prattN").value);
+    if(n===null){$("polyPreview").textContent="Bitte eine ganze Zahl 2 … "+PRATT_MAX_N+" eingeben.";return;}
+    try{$("polyPreview").textContent="f"+subscript(n)+",₁(x) = "+polynomialText(buildPrattPolynomial(n),"x");}
+    catch(e){$("polyPreview").textContent=e.message;}
+  }
+  $("prattN").addEventListener("input",updatePolynomialPreview);
+  function updateAnalysisHelp(){const mode=$("analysisMode").value;$("analysisHelp").textContent=modeHelp[mode]||"";}
+  $("analysisMode").addEventListener("change",updateAnalysisHelp);
+  $("stopMode").onchange=()=>{$("fixedField").hidden=$("stopMode").value!=="fixed";};
+  $("quickMode").onchange=()=>{options.mode=$("quickMode").value;underlay=null;overlay=null;lastResult=null;scheduleRender(0);};
+  $("probe").onclick=()=>{probeActive=!probeActive;$("probe").classList.toggle("active",probeActive);$("probe").setAttribute("aria-pressed",String(probeActive));$("probeBox").hidden=!probeActive;if(probeActive)$("probeBox").textContent="Tippe auf einen Punkt oder eine Naht.";};
+  function inspectPoint(point){
+    const z=worldAt(point.x,point.y),a=probeEngine.inspectOrbit(z.r,z.i,options.coeffs,options.limit,options.stopMode,options.fixedM);
+    const angle=options.angle*Math.PI/180,wr=Math.cos(angle)*a.end[0]+Math.sin(angle)*a.end[1],wi=Math.cos(angle)*a.end[1]-Math.sin(angle)*a.end[0];
+    let text="z = "+pretty(z.r)+" "+(z.i<0?"−":"+")+" "+pretty(Math.abs(z.i))+"i\nm = "+a.completedSteps+" · S = "+a.status+" · p = "+a.period+"\nRe(W) = "+pretty(wr)+" · Im(W) = "+pretty(wi);
+    if(!a.valid)text+="\nHier kein auswertbarer Phasenwert.";
+    if(lastResult&&lastResult.lines&&lastResult.options.mode==="seams"){
+      const r=lastResult,x=(z.r-r.cx)/r.unit+r.w/2,y=(r.cy-z.i)/r.unit+r.h/2,lines=r.lines;
+      let best=Infinity,px=0,py=0;
+      for(let j=0;j<lines.length;j+=4){
+        const dx=lines[j+2]-lines[j],dy=lines[j+3]-lines[j+1],len=dx*dx+dy*dy;
+        const t=len?Math.max(0,Math.min(1,((x-lines[j])*dx+(y-lines[j+1])*dy)/len)):0;
+        const ax=lines[j]+t*dx,ay=lines[j+1]+t*dy,d=(x-ax)**2+(y-ay)**2;
+        if(d<best){best=d;px=ax;py=ay;}
+      }
+      if(Math.sqrt(best)*r.unit/(view.span/Math.min(cssW,cssH))<12){
+        const nr=r.cx+(px-r.w/2)*r.unit,ni=r.cy+(r.h/2-py)*r.unit;
+        text+="\nNaht nahe z ≈ "+pretty(nr)+" "+(ni<0?"−":"+")+" "+pretty(Math.abs(ni))+"i\nEingrenzung an Rasterkanten: "+pretty(r.unit/64);
+      }else text+="\nKeine lokalisierte Phasennaht in Tippnähe.";
+    }
+    $("probeBox").textContent=text;$("probeBox").hidden=false;
+  }
+  $("reset").onclick=()=>{view.cx=baseView.cx;view.cy=baseView.cy;view.span=baseView.span;underlay=null;overlay=null;scheduleRender(0);};
+  $("openSettings").onclick=()=>{$("prattN").value=options.prattN;$("quality").value=options.quality;$("iterations").value=options.limit;$("analysisMode").value=options.mode;$("stopMode").value=options.stopMode;$("fixedM").value=options.fixedM;$("fixedField").hidden=options.stopMode!=="fixed";$("angle").value=options.angle;updatePolynomialPreview();updateAnalysisHelp();settings.showModal();};
+  $("closeSettings").onclick=()=>settings.close();
+  $("applySettings").onclick=()=>{
+    const n=validPrattN($("prattN").value);
+    if(n===null){notify("n muss eine ganze Zahl zwischen 2 und "+PRATT_MAX_N+" sein.");$("prattN").focus();return;}
+    const fixedM=Number($("fixedM").value),angle=Number($("angle").value);
+    if(!Number.isInteger(fixedM)||fixedM<1||fixedM>80){notify("m muss eine ganze Zahl von 1 bis 80 sein.");return;}
+    if(!Number.isFinite(angle)||Math.abs(angle)>360){notify("α muss zwischen −360° und 360° liegen.");return;}
+    options.prattN=n;options.coeffs=buildPrattPolynomial(n);options.quality=$("quality").value;options.limit=Number($("iterations").value);options.mode=$("analysisMode").value;
+    options.stopMode=$("stopMode").value;options.fixedM=fixedM;options.angle=angle;underlay=null;overlay=null;lastResult=null;
+    settings.close();scheduleRender(0);
+  };
+  $("saveImage").onclick=()=>{
+    if(!lastResult||current)return;
+    lastResult.image.toBlob(blob=>{if(!blob){notify("PNG konnte nicht erstellt werden.");return;}
+      download(blob,"zeta-pratt-sw-n"+options.prattN+"-"+options.mode+".png");
+    },"image/png");
+  };
+  function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
+  function contourSvg(r){
+    const data=r.lines||[],parts=[];
+    for(let j=0;j<data.length;j+=4)parts.push("M"+data[j].toFixed(3)+","+data[j+1].toFixed(3)+"L"+data[j+2].toFixed(3)+","+data[j+3].toFixed(3));
+    const meta=JSON.stringify({n:r.options.prattN,coeffs:r.options.coeffs,mode:r.options.mode,stopMode:r.options.stopMode,fixedM:r.options.fixedM,limit:r.options.limit,angle:r.options.angle,cx:r.cx,cy:r.cy,unit:r.unit,width:r.w,height:r.h}).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="'+r.w+'" height="'+r.h+'" viewBox="0 0 '+r.w+' '+r.h+'"><title>Zeta-Pratt Schwarzweißkontur</title><desc>Numerische Kontursegmente. re=cx+(x-width/2)*unit; im=cy+(height/2-y)*unit. Eingrenzung von Phasenkreuzungen an Rasterkanten auf unit/64; die Verbindung innerhalb einer Zelle ist linear angenähert.</desc><metadata>'+meta+'</metadata><rect width="100%" height="100%" fill="white"/><path d="'+parts.join("")+'" fill="none" stroke="black" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+  $("saveSvg").onclick=()=>{if(lastResult&&lastResult.lines&&!current)download(new Blob([contourSvg(lastResult)],{type:"image/svg+xml"}),"zeta-pratt-sw-n"+options.prattN+"-"+options.mode+".svg");};
+  if(!document.documentElement.requestFullscreen)$("fullscreen").hidden=true;
+  else $("fullscreen").onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch(_){notify("Vollbild ist in diesem Browser nicht verfügbar.");}};
+  document.addEventListener("keydown",e=>{
+    if(settings.open||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;
+    if(e.key==="+"||e.key==="="){e.preventDefault();zoomAt(cssW/2,cssH/2,.5);}
+    if(e.key==="-"){e.preventDefault();zoomAt(cssW/2,cssH/2,2);}
+    if(e.key.toLowerCase()==="r")$("reset").click();
+    if(e.key.toLowerCase()==="a"){
+      e.preventDefault();const modes=["binary","seams","stops"],i=modes.indexOf(options.mode);options.mode=modes[(i+1)%modes.length];underlay=null;overlay=null;lastResult=null;scheduleRender(0);
+    }
+    const u=view.span/Math.min(cssW,cssH)*50;
+    if(e.key==="ArrowLeft"){e.preventDefault();view.cx-=u;scheduleRender();}
+    if(e.key==="ArrowRight"){e.preventDefault();view.cx+=u;scheduleRender();}
+    if(e.key==="ArrowUp"){e.preventDefault();view.cy+=u;scheduleRender();}
+    if(e.key==="ArrowDown"){e.preventDefault();view.cy-=u;scheduleRender();}
+  });
+  document.addEventListener("visibilitychange",()=>{
+    if(document.hidden){cancelRender();pointers.clear();gesture=null;canvas.classList.remove("dragging");}
+    else scheduleRender(0);
+  });
+  function resize(){
+    const r=stage.getBoundingClientRect();if(r.width===cssW&&r.height===cssH)return;
+    cssW=r.width;cssH=r.height;dpr=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.max(1,Math.round(cssW*dpr));canvas.height=Math.max(1,Math.round(cssH*dpr));scheduleRender(180);
+  }
+  new ResizeObserver(resize).observe(stage);
+  try{
+    const p=new URLSearchParams(location.hash.slice(1)),cx=Number(p.get("x")),cy=Number(p.get("y")),span=Number(p.get("s"));
+    const legacy=p.has("f"),legacyMap={A:4,B:5,E:3,F:5};
+    let chosen=legacy?(legacyMap[p.get("f")]||4):Number(p.get("n"));
+    if(!Number.isInteger(chosen)||chosen<2||chosen>PRATT_MAX_N)chosen=4;
+    options.prattN=chosen;options.coeffs=buildPrattPolynomial(chosen);
+    if(p.has("x")&&p.has("y")&&p.has("s")&&Number.isFinite(cx)&&Number.isFinite(cy)&&Math.abs(cx)<1e6&&Math.abs(cy)<1e6&&span>1e-13&&span<=100){view.cx=cx;view.cy=cy;view.span=span;}
+    const iter=Number(legacy?p.get("n"):p.get("m"));
+    if([80,160,200,240,400].includes(iter))options.limit=iter;
+    if(["mobile","fine","high"].includes(p.get("q")))options.quality=p.get("q");
+    if(["binary","seams","stops"].includes(p.get("a")))options.mode=p.get("a");
+    if(["adaptive","fixed"].includes(p.get("b")))options.stopMode=p.get("b");
+    const target=Number(p.get("t")),angle=Number(p.get("r"));
+    if(Number.isInteger(target)&&target>=1&&target<=80)options.fixedM=target;
+    if(Number.isFinite(angle)&&Math.abs(angle)<=360)options.angle=angle;
+  }catch(_){}
+  createPool();resize();updateLabels();
+  // Small read-only/public interface for reproducibility and embedding.
+  window.ZetaPratt=Object.freeze({
+    getState:()=>({view:{...view},options:{prattN:options.prattN,quality:options.quality,limit:options.limit,mode:options.mode,stopMode:options.stopMode,fixedM:options.fixedM,angle:options.angle},polynomial:polynomialText(options.coeffs,"x"),completed,rendering:!!current,workers:pool.length,fallback:!!fallback,lastMs,lastSize,contourStats:lastResult?.contourStats||null}),
+    goTo:(cx,cy,span)=>{
+      if(!Number.isFinite(cx)||!Number.isFinite(cy)||!Number.isFinite(span)||span<=0)throw new Error("Ungültige Koordinaten");
+      view.cx=cx;view.cy=cy;view.span=setSpan(span);scheduleRender(0);
+    }
+  });
+})();
+</script>
+</body>
+</html>
